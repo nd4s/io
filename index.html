@@ -450,6 +450,18 @@
     }
     #fs-hand:active { transform: scale(0.95); }
     .fs-btn-active { background-color: var(--color-hand) !important; color: white !important; border: none !important; }
+    
+    /* Fullscreen Rotation Button */
+    #fs-rotate {
+        position: absolute; bottom: 20px; left: 20px;
+        background: rgba(0, 0, 0, 0.6); color: white;
+        border: none; border-radius: 50%; width: 44px; height: 44px;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+        transform: rotate(var(--landscape-rotation));
+        transition: transform 0.3s ease, background 0.2s;
+        pointer-events: auto;
+    }
+    #fs-rotate:active { transform: rotate(var(--landscape-rotation)) scale(0.9); background: rgba(0,0,0,0.8); }
 
     .id-display {
         font-size: 1.8rem; font-weight: 800; color: var(--color-attention-med);
@@ -703,6 +715,9 @@
             <path class="hand-timer-path" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
         </svg>
         <i data-lucide="hand" width="32" height="32"></i>
+    </button>
+    <button id="fs-rotate" onclick="onRotate()">
+        <i data-lucide="rotate-cw" width="24" height="24"></i>
     </button>
 </div>
 
