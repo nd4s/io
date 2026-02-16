@@ -368,6 +368,17 @@
         max-width: 90%;
     }
 
+    /* Sample Menu Item */
+    .sample-item {
+        background: white; border: none; border-bottom: 1px solid #eee;
+        padding: 10px; text-align: left; font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem; font-weight: 600; color: #333; cursor: pointer;
+        width: 100%; display: block;
+        transition: background 0.2s;
+    }
+    .sample-item:last-child { border-bottom: none; }
+    .sample-item:active { background: #f0f0f0; color: var(--color-attention-med); }
+
     /* --- TOOLBAR --- */
     #toolbar {
         width: 100%; height: auto; min-height: var(--toolbar-size);
@@ -632,6 +643,19 @@
         </div>
 
         <div style="width: 100%; display: flex; flex-direction: column; gap: 5px;">
+            <!-- SAMPLES BUTTON AND DROPDOWN -->
+            <div style="position:relative; width:100%;">
+                <button id="btn-samples" class="btn-secondary" style="width:100%; font-size:0.9rem; padding: 5px;" onclick="toggleSampleMenu()">
+                    <i data-lucide="folder-open"></i> Зразки
+                </button>
+                
+                <div id="sample-menu" class="hidden" style="position:absolute; bottom: 45px; left:0; width:100%; background:white; border:2px solid var(--color-attention-med); border-radius:10px; z-index:999; box-shadow: 0 4px 15px rgba(0,0,0,0.2); overflow:hidden;">
+                     <button class="sample-item" onclick="selectSample('https://nd4s.github.io/io/Example_PDF.pdf')">1. Демо (Стандарт)</button>
+                     <button class="sample-item" onclick="selectSample('https://raw.githubusercontent.com/mozilla/pdf.js/master/web/compressed.tracemonkey-pldi-09.pdf')">2. Наукова стаття</button>
+                     <button class="sample-item" onclick="selectSample('https://pdfobject.com/pdf/sample.pdf')">3. Зразок (Бізнес)</button>
+                </div>
+            </div>
+
             <input type="text" id="gdrive-input" oninput="resetInputColor()" placeholder="URL презентації (PDF)">
         </div>
         
@@ -863,6 +887,18 @@
         initLockInterface();
         initManualInputListener();
     };
+
+    // --- SAMPLES MENU LOGIC ---
+    function toggleSampleMenu() {
+        const menu = document.getElementById('sample-menu');
+        menu.classList.toggle('hidden');
+    }
+
+    function selectSample(url) {
+        document.getElementById('gdrive-input').value = url;
+        resetInputColor();
+        toggleSampleMenu();
+    }
 
     // --- IMPROVED LOCK INTERFACE (DIPLOMAT ROTATING STYLE) ---
     function initLockInterface() {
