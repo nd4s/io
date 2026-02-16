@@ -808,6 +808,7 @@
     let isLeader = false;
     let transferInProgress = false;
     let activeSourceUrl = null;
+    let currentPdfUrl = null; // Track current PDF URL
     let myIdRaw = null;
     let currentHostId = null; 
     
@@ -1635,7 +1636,7 @@
                 id: conn.peer, 
                 conn: conn, 
                 ready: false, 
-                handRaised: false,
+                handRaised: false, 
                 lastPong: Date.now() 
             };
             connections.push(client);
@@ -1780,6 +1781,12 @@
                     return;
                 }
                 if (data.type === 'INIT') {
+                    // Check if file is same and already loaded
+                    if (currentPdfUrl === data.url && pdfDoc) {
+                        finishSetup();
+                        return;
+                    }
+
                     // Reset to loading screen to show progress of new file
                     document.getElementById('ui-layer').classList.remove('hidden');
                     document.getElementById('listener-menu').classList.add('hidden');
@@ -1787,7 +1794,10 @@
                     document.getElementById('loading-msg').innerText = "Викачую...";
                     
                     const ok = await renderPdf(data.url);
-                    if(ok) finishSetup();
+                    if(ok) {
+                        currentPdfUrl = data.url;
+                        finishSetup();
+                    }
                 }
                 if (data.type === 'PAGE') {
                     pageNum = data.value;
