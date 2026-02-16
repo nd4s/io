@@ -818,12 +818,15 @@
     const drawCtx = drawCanvas.getContext('2d');
     const container = document.getElementById('pdf-container');
     
+    // Global variable to hold the current page's viewport information
+    let currentViewport = null;
+
     let peer = null;
     let connections = [];
     let isLeader = false;
     let transferInProgress = false;
     let activeSourceUrl = null;
-    let currentPdfUrl = null; // Track current PDF URL
+    let currentPdfUrl = null; 
     let myIdRaw = null;
     let currentHostId = null; 
     
@@ -863,15 +866,13 @@
 
     // --- IMPROVED LOCK INTERFACE (DIPLOMAT ROTATING STYLE) ---
     function initLockInterface() {
-        // Initialize 9 digit rollers
         for (let i = 0; i < 9; i++) {
             setupRotaryLock(i);
         }
-        updateManualInput(); // Sync initial state
+        updateManualInput(); 
         lucide.createIcons();
     }
     
-    // INTEGRATED INPUT LOGIC
     function triggerKeyboard() {
         const inp = document.getElementById('ghost-input');
         if(inp) {
@@ -890,7 +891,6 @@
 
         inp.addEventListener('input', (e) => {
             const val = e.target.value.replace(/[^0-9]/g, '');
-            // Update digits
             for(let i=0; i<9; i++) {
                 if(i < val.length) {
                     lockDigits[i] = parseInt(val[i]);
@@ -905,7 +905,6 @@
     
     function updateManualInput() {
         const inp = document.getElementById('ghost-input');
-        // Strip trailing zeros so the user can append typing (fixes bug after paste)
         if(inp) inp.value = lockDigits.join('').replace(/0+$/, ''); 
     }
 
@@ -913,16 +912,13 @@
         const el = document.getElementById('d' + index);
         if (!el) return;
 
-        // Update function
         const updateVal = () => el.querySelector('span').innerText = lockDigits[index];
         updateVal();
 
-        // Variables for drag logic
         let startY = 0;
         let isDragging = false;
-        let sensitivity = 25; // Pixels to trigger change
+        let sensitivity = 25; 
 
-        // Touch events
         el.addEventListener('touchstart', (e) => {
             startY = e.touches[0].clientY;
             isDragging = true;
@@ -943,7 +939,6 @@
 
         el.addEventListener('touchend', (e) => { isDragging = false; });
 
-        // Mouse events (Desktop simulation)
         el.addEventListener('mousedown', (e) => {
             startY = e.clientY;
             isDragging = true;
@@ -963,7 +958,6 @@
             el.style.cursor = 'grab';
         });
 
-        // Wheel support
         el.addEventListener('wheel', (e) => {
             e.preventDefault();
             const direction = e.deltaY > 0 ? 1 : -1;
@@ -1165,7 +1159,6 @@
         isLeader = false;
         updateToolbarForRole();
         
-        // Wait for DOM layout to stabilize before initializing scanner
         setTimeout(() => {
             if(!html5QrCode) {
                 html5QrCode = new Html5Qrcode("reader");
@@ -1174,7 +1167,6 @@
             Html5Qrcode.getCameras().then(devices => {
                 if (devices && devices.length) {
                     availableCameras = devices;
-                    // Try to start with the last camera (usually back camera on mobile)
                     currentCameraIndex = availableCameras.length - 1; 
                     
                     if(availableCameras.length > 1) {
@@ -1183,11 +1175,9 @@
 
                     startCamera(availableCameras[currentCameraIndex].id);
                 } else {
-                    // Fallback to generic config if no cameras enumerated but available
                     startCamera(null); 
                 }
             }).catch(err => {
-                // If enumeration fails, try generic back camera start
                 startCamera(null);
             });
         }, 300);
@@ -1235,7 +1225,6 @@
     }
 
     function onScanFailure(error) { 
-        // Console logging is fine, avoid alerting user constantly
     }
 
     function setupSpeaker() {
@@ -1275,7 +1264,6 @@
         return Math.min(scaleX, scaleY) * (window.devicePixelRatio || 1);
     }
 
-    // Helper to format bytes
     function formatBytes(bytes, decimals = 2) {
         if (!+bytes) return '0 Bytes';
         const k = 1024;
@@ -1297,20 +1285,17 @@
                 cMapPacked: true
             });
 
-            // Progress Callback
             loadingTask.onProgress = function(data) {
                 if (data.total > 0) {
                     const loadedStr = formatBytes(data.loaded);
                     const totalStr = formatBytes(data.total);
                     const text = `Викачую... ${loadedStr} / ${totalStr}`;
 
-                    // Update Listener UI
                     const loadMsg = document.getElementById('loading-msg');
                     if(loadMsg && !document.getElementById('loading-menu').classList.contains('hidden')) {
                          loadMsg.innerText = text;
                     }
 
-                    // Update Speaker UI
                     const syncStat = document.getElementById('sync-status');
                     if(syncStat && syncStat.style.display !== 'none') {
                         syncStat.innerHTML = `<i data-lucide="loader-2" class="spin"></i> ${text}`;
@@ -1348,6 +1333,9 @@
         pdfDoc.getPage(num).then(page => {
             const displayScale = getOptimalScale(page);
             const viewport = page.getViewport({ scale: displayScale, rotation: rotation });
+            
+            // ** CRITICAL: Store viewport globally to allow drawing logic to access current transform matrix **
+            currentViewport = viewport;
             
             document.documentElement.style.setProperty('--landscape-rotation', rotation + 'deg');
             
@@ -1462,34 +1450,56 @@
     function stopDrawing() { isDrawing = false; }
 
     function performDraw(x0, y0, x1, y1, emit) {
-        const w = drawCanvas.width; const h = drawCanvas.height;
+        // Only draw if we have a valid viewport to calculate transformations
+        if (!currentViewport) return;
+
+        // Visual draw on speaker screen (pixels)
         drawCtx.beginPath();
         drawCtx.moveTo(x0, y0); drawCtx.lineTo(x1, y1); drawCtx.stroke();
+        
         if (emit && isLeader) {
-            const normCoords = [x0 / w, y0 / h, x1 / w, y1 / h];
+            // Convert to PDF coordinates (Absolute PDF Points, independent of rotation/scale)
+            const p0 = currentViewport.convertToPdfPoint(x0, y0);
+            const p1 = currentViewport.convertToPdfPoint(x1, y1);
+            
+            // Flatten to send [x0, y0, x1, y1] in PDF space
+            const pdfCoords = [p0[0], p0[1], p1[0], p1[1]];
+            
             if (!pageMarks[pageNum]) pageMarks[pageNum] = [];
-            pageMarks[pageNum].push(normCoords);
-            broadcast({ type: 'DRAW', coords: normCoords });
+            pageMarks[pageNum].push(pdfCoords);
+            broadcast({ type: 'DRAW', coords: pdfCoords });
         }
     }
 
-    function receiveDraw(nx0, ny0, nx1, ny1) {
-        const w = drawCanvas.width; const h = drawCanvas.height;
+    function receiveDraw(px0, py0, px1, py1) {
+        // Inputs are PDF Point coordinates
+        if (!currentViewport) return;
+        
         if (!pageMarks[pageNum]) pageMarks[pageNum] = [];
-        pageMarks[pageNum].push([nx0, ny0, nx1, ny1]);
+        pageMarks[pageNum].push([px0, py0, px1, py1]);
+        
+        // Convert PDF Points back to Current Viewport Pixels for display
+        const v0 = currentViewport.convertToViewportPoint(px0, py0);
+        const v1 = currentViewport.convertToViewportPoint(px1, py1);
+
         drawCtx.beginPath();
-        drawCtx.moveTo(nx0 * w, ny0 * h); drawCtx.lineTo(nx1 * w, ny1 * h); drawCtx.stroke();
+        drawCtx.moveTo(v0[0], v0[1]); drawCtx.lineTo(v1[0], v1[1]); drawCtx.stroke();
     }
 
     function redrawStoredLines(pNum) {
-        if (!pageMarks[pNum]) return;
-        const w = drawCanvas.width; const h = drawCanvas.height;
+        if (!pageMarks[pNum] || !currentViewport) return;
+        
         drawCtx.lineCap = 'round'; drawCtx.lineJoin = 'round';
         drawCtx.lineWidth = 4; drawCtx.strokeStyle = '#b80000';
         drawCtx.beginPath();
+        
         pageMarks[pNum].forEach(line => {
-            drawCtx.moveTo(line[0] * w, line[1] * h);
-            drawCtx.lineTo(line[2] * w, line[3] * h);
+            // line is [px0, py0, px1, py1] in PDF Space
+            const v0 = currentViewport.convertToViewportPoint(line[0], line[1]);
+            const v1 = currentViewport.convertToViewportPoint(line[2], line[3]);
+            
+            drawCtx.moveTo(v0[0], v0[1]);
+            drawCtx.lineTo(v1[0], v1[1]);
         });
         drawCtx.stroke();
     }
@@ -1547,7 +1557,6 @@
         document.getElementById('meeting-id-display').innerText = fmtId;
         document.getElementById('qr-modal-id').innerText = fmtId;
 
-        // Generate small QR for speaker menu, larger for modal
         new QRCode(document.getElementById("qr-container"), { text: fullUrl, width: 250, height: 250, colorDark: "#000000" });
         new QRCode(document.getElementById("qrcode-modal-tgt"), { text: fullUrl, width: 250, height: 250, colorDark: "#000000" });
     }
@@ -1570,22 +1579,17 @@
     }
     
     function exitToSetup() {
-        // Speaker exits presentation view to setup menu, but keeps session
         document.getElementById('ui-layer').classList.remove('hidden');
         document.getElementById('speaker-menu').classList.remove('hidden');
         
-        // Hide the exit button
         document.getElementById('speaker-exit-btn').classList.add('hidden');
         
-        // Reset the "Start" button in the menu
         const startBtn = document.getElementById('btn-start-sync');
         startBtn.disabled = false;
         startBtn.innerHTML = `<i data-lucide="play" width="28" height="28"></i>`;
         lucide.createIcons();
         
-        // Allow restarting transfer
         transferInProgress = false;
-        // Connections remain active in background
     }
 
     let resizeTimeout;
@@ -1718,7 +1722,6 @@
         const driveInput = inputField.value.trim();
         const targetUrl = normalizePresentationUrl(driveInput) || DEFAULT_PDF_URL;
 
-        // CHECK: If PDF is loaded and URL matches, skip download
         if (pdfDoc && targetUrl === currentPdfUrl) {
             activeSourceUrl = targetUrl;
             transferInProgress = true;
@@ -1739,7 +1742,7 @@
         const success = await renderPdf(activeSourceUrl);
         
         if (success) {
-            currentPdfUrl = activeSourceUrl; // Update current URL
+            currentPdfUrl = activeSourceUrl; 
             inputField.classList.add('input-success');
             transferInProgress = true;
             document.getElementById('ui-layer').classList.add('hidden');
@@ -1811,13 +1814,11 @@
                     return;
                 }
                 if (data.type === 'INIT') {
-                    // Check if file is same and already loaded
                     if (currentPdfUrl === data.url && pdfDoc) {
                         finishSetup();
                         return;
                     }
 
-                    // Reset to loading screen to show progress of new file
                     document.getElementById('ui-layer').classList.remove('hidden');
                     document.getElementById('listener-menu').classList.add('hidden');
                     document.getElementById('loading-menu').classList.remove('hidden');
