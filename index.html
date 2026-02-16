@@ -607,15 +607,6 @@
 
         <div style="width: 100%; display: flex; flex-direction: column; gap: 5px;">
             <input type="text" id="gdrive-input" oninput="resetInputColor()" placeholder="URL презентації (PDF)">
-            
-            <button class="icon-btn" style="margin-top:5px; justify-content:center;" onclick="toggleSamples()">
-                <i data-lucide="book-open"></i> Зразки презентацій
-            </button>
-            <div id="samples-list" class="hidden" style="flex-direction:column; gap:5px; margin-top:5px; width:100%;">
-                <button class="icon-btn" onclick="selectSample('https://knu.ua/pdfs/zvit/zvit-rektora-2025.pdf')">1. Звіт Ректора 2025</button>
-                <button class="icon-btn" onclick="selectSample('https://mintra.com/assets/courses/Mintra-Company-Presentation-September-2020.pdf')">2. Статут КНУ</button>
-                <button class="icon-btn" onclick="selectSample('https://pdfobject.com/pdf/sample.pdf')">3. Тестова стаття (Mozilla)</button>
-            </div>
         </div>
         
         <div id="sync-status" style="display:none; color: var(--color-attention-high); font-weight:700; font-size: 1rem;">
@@ -1055,24 +1046,6 @@
         input.classList.remove('input-error');
     }
 
-    function toggleSamples() {
-        const list = document.getElementById('samples-list');
-        if(list.classList.contains('hidden')) {
-            list.classList.remove('hidden');
-            list.style.display = 'flex';
-        } else {
-            list.classList.add('hidden');
-            list.style.display = 'none';
-        }
-    }
-
-    function selectSample(url) {
-        const inp = document.getElementById('gdrive-input');
-        inp.value = url;
-        resetInputColor();
-        toggleSamples();
-    }
-
     function forceReload() { window.location.reload(); }
 
     function triggerResync() {
@@ -1267,6 +1240,16 @@
         return Math.min(scaleX, scaleY) * (window.devicePixelRatio || 1);
     }
 
+    // Helper to format bytes
+    function formatBytes(bytes, decimals = 2) {
+        if (!+bytes) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    }
+
     async function renderPdf(source) {
         if (typeof source === 'string' && (source.includes('.ppt') || source.includes('.pptx')) && !source.includes('google.com')) {
             showNotification("Браузер не відображає PPT/PPTX напряму. Будь ласка, використовуйте посилання на Google Slides або експортуйте файл у PDF.", true);
@@ -1278,6 +1261,37 @@
                 cMapUrl: 'https://unpkg.com/pdfjs-dist@3.11.174/cmaps/',
                 cMapPacked: true
             });
+
+            // Progress Callback
+            loadingTask.onProgress = function(data) {
+                if (data.total > 0) {
+                    const loadedStr = formatBytes(data.loaded);
+                    const totalStr = formatBytes(data.total);
+                    const percent = Math.round((data.loaded / data.total) * 100);
+                    const text = `Завантажено ${loadedStr} / ${totalStr} (${percent}%)`;
+
+                    // Update Listener UI
+                    const loadMsg = document.getElementById('loading-msg');
+                    if(loadMsg && !document.getElementById('loading-menu').classList.contains('hidden')) {
+                         loadMsg.innerText = text;
+                    }
+
+                    // Update Speaker UI
+                    const syncStat = document.getElementById('sync-status');
+                    if(syncStat && syncStat.style.display !== 'none') {
+                        syncStat.innerHTML = `<i data-lucide="loader-2" class="spin"></i> ${text}`;
+                        lucide.createIcons();
+                    }
+                } else {
+                    const loadedStr = formatBytes(data.loaded);
+                    const text = `Завантажено ${loadedStr}...`;
+                    const loadMsg = document.getElementById('loading-msg');
+                    if(loadMsg && !document.getElementById('loading-menu').classList.contains('hidden')) {
+                        loadMsg.innerText = text;
+                    }
+                }
+            };
+
             pdfDoc = await loadingTask.promise;
             const num = pdfDoc.numPages;
             document.getElementById('page_count').textContent = num;
