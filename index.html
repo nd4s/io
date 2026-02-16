@@ -126,7 +126,7 @@
         display: flex; align-items: center; justify-content: center;
         font-family: 'Montserrat', sans-serif; 
     }
-    button.btn-secondary:active { background: #f0f0f0; }
+    button.btn-secondary:active { background: #f0f8ff; }
 
     /* Small icon buttons (Copy/Share/Paste) */
     .icon-btn-group {
@@ -649,7 +649,7 @@
         <div id="speaker-stats">
             <div class="stat-item">
                 <div class="stat-val" id="speaker-user-count">0</div>
-                <div class="stat-label">Підключено слухачів</div>
+                <div class="stat-label">Підключено</div>
             </div>
         </div>
 
@@ -1805,15 +1805,7 @@
     function joinGame(id, pageParam) {
         let hostId = id || getLockCode(); 
         hostId = hostId.replace(/\s/g, '');
-
-        // Validating the input numeric part based on generation rules (min 100000000, 9 digits)
-        let numericPart = hostId.replace(APP_PREFIX, '');
-
-        if (!numericPart || numericPart.length !== 9 || !/^\d+$/.test(numericPart) || parseInt(numericPart) < 100000000) {
-             showNotification("Невірний формат коду. Введіть коректні 9 цифр (код не може бути нульовим).", true);
-             return;
-        }
-
+        if (!hostId) return showNotification("Потрібен ID або QR код для підключення", true);
         if (!hostId.startsWith(APP_PREFIX)) hostId = APP_PREFIX + hostId;
 
         currentHostId = hostId.replace(APP_PREFIX, ''); 
