@@ -1701,8 +1701,22 @@
         resetInputColor();
         const inputField = document.getElementById('gdrive-input');
         const driveInput = inputField.value.trim();
-        activeSourceUrl = normalizePresentationUrl(driveInput) || DEFAULT_PDF_URL;
+        const targetUrl = normalizePresentationUrl(driveInput) || DEFAULT_PDF_URL;
 
+        // CHECK: If PDF is loaded and URL matches, skip download
+        if (pdfDoc && targetUrl === currentPdfUrl) {
+            activeSourceUrl = targetUrl;
+            transferInProgress = true;
+            document.getElementById('ui-layer').classList.add('hidden');
+            document.getElementById('speaker-exit-btn').classList.remove('hidden');
+            
+            if(html5QrCode) try { html5QrCode.stop().then(() => html5QrCode.clear()); } catch(e){}
+            connections.forEach(c => syncSingleClient(c));
+            return;
+        }
+
+        activeSourceUrl = targetUrl;
+        
         const lbl = document.getElementById('sync-status');
         lbl.style.display = 'block';
         document.getElementById('btn-start-sync').disabled = true;
@@ -1710,10 +1724,11 @@
         const success = await renderPdf(activeSourceUrl);
         
         if (success) {
+            currentPdfUrl = activeSourceUrl; // Update current URL
             inputField.classList.add('input-success');
             transferInProgress = true;
             document.getElementById('ui-layer').classList.add('hidden');
-            document.getElementById('speaker-exit-btn').classList.remove('hidden'); // Show Exit Button
+            document.getElementById('speaker-exit-btn').classList.remove('hidden'); 
             
             if(html5QrCode) try { html5QrCode.stop().then(() => html5QrCode.clear()); } catch(e){}
             connections.forEach(c => syncSingleClient(c));
