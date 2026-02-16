@@ -624,7 +624,7 @@
         </div>
         
         <div id="sync-status" style="display:none; color: var(--color-attention-high); font-weight:700; font-size: 1rem;">
-            <i data-lucide="loader-2" class="spin"></i> Завантаження...
+            <i data-lucide="loader-2" class="spin"></i> Викачую...
         </div>
 
         <!-- Action Bar: Back and Start -->
@@ -1784,7 +1784,7 @@
                     document.getElementById('ui-layer').classList.remove('hidden');
                     document.getElementById('listener-menu').classList.add('hidden');
                     document.getElementById('loading-menu').classList.remove('hidden');
-                    document.getElementById('loading-msg').innerText = "Завантаження презентації...";
+                    document.getElementById('loading-msg').innerText = "Викачую...";
                     
                     const ok = await renderPdf(data.url);
                     if(ok) finishSetup();
